@@ -6,7 +6,7 @@ const OAuth2 = google.auth.OAuth2;
 const oauth2Client = new OAuth2(
   process.env.GMAIL_CLIENT_ID,
   process.env.GMAIL_CLIENT_SECRET,
-  "https://developers.google.com/oauthplayground" // redirect URI used to generate refresh token
+  "https://developers.google.com/oauthplayground" 
 );
 
 oauth2Client.setCredentials({

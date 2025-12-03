@@ -69,6 +69,7 @@ exports.register = async (req, res) => {
 };
 
 exports.verifyEmailOtp = async (req, res) => {
+  
   try {
     const { email, otp } = req.body;
     const user = await User.findOne({ email });
@@ -90,6 +91,7 @@ exports.verifyEmailOtp = async (req, res) => {
 exports.resendOtp = async (req, res) => {
   try {
     const { email } = req.body;
+
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found' });
 

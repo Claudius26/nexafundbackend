@@ -26,6 +26,11 @@ const UserSchema = new Schema({
   wallets: [WalletSchema],
   isBlocked: { type: Boolean, default: false },
   verificationDoc: String,
+  verificationStatus: {
+    type: String,
+    enum: ["not_submitted", "pending", "verified"],
+    default: "not_submitted",
+  },
   createdAt: { type: Date, default: Date.now },
   notifications: [{ type: Schema.Types.ObjectId, ref: 'Notification' }],
   otp: {

@@ -3,8 +3,8 @@ function calculateBalance(wallets, prices) {
 
   wallets.forEach(w => {
     const coinPrice = prices[w.coin];
-    if (coinPrice) {
-      total += w.amount * coinPrice; 
+    if (coinPrice.price) {
+      total += w.amount * coinPrice.price; 
     }
   });
 

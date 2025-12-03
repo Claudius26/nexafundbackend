@@ -6,6 +6,87 @@ const Message = require('../models/Message');
 const { getCryptoPrices } = require('../services/cryptoPrice');
 const calculateBalance = require('../utils/calcBalance');
 
+const Admin = require("../models/Admin");
+const bcrypt = require("bcryptjs");
+
+
+exports.getAdminInfo = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin._id).select("-passwordHash"); 
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    res.json({
+      _id: admin._id,
+      username: admin.username,
+      createdAt: admin.createdAt,
+    });
+  } catch (err) {
+    console.error("getAdminInfo error:", err);
+    res.status(500).json({ message: "Failed to fetch admin info" });
+  }
+};
+
+
+exports.updateAdminUsername = async (req, res) => {
+  try {
+    const { username } = req.body;
+    const adminId = req.admin._id;
+
+    if (!username) {
+      return res.status(400).json({ message: "Username is required" });
+    }
+
+    const existing = await Admin.findOne({ username });
+    if (existing && existing._id.toString() !== adminId.toString()) {
+      return res.status(400).json({ message: "Username already taken" });
+    }
+
+    const updated = await Admin.findByIdAndUpdate(
+      adminId,
+      { username },
+      { new: true }
+    );
+
+    res.json({
+      message: "Username updated successfully",
+      admin: { username: updated.username }
+    });
+  } catch (err) {
+    console.error("updateAdminUsername:", err);
+    res.status(500).json({ message: "Failed to update username" });
+  }
+};
+
+
+exports.updateAdminPassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const adminId = req.admin._id;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    const match = await bcrypt.compare(oldPassword, admin.passwordHash);
+    if (!match) {
+      return res.status(400).json({ message: "Old password is incorrect" });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    admin.passwordHash = hashed;
+    await admin.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("updateAdminPassword:", err);
+    res.status(500).json({ message: "Failed to update password" });
+  }
+};
+
+
 exports.listUsers = async (req, res) => {
   const users = await User.find().select('-password').sort({ createdAt: -1 });
   res.json(users);
@@ -19,43 +100,140 @@ exports.getUser = async (req, res) => {
 
 exports.verifyUser = async (req, res) => {
   const user = await User.findById(req.params.id);
-  if(!user) return res.status(404).json({ message: 'Not found' });
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
   user.verified = true;
+  user.verificationStatus = "verified";
+
   await user.save();
-  const n = new Notification({ user: user._id, title: 'Account verified', body: 'Your account has been verified by admin.' });
+  const n = new Notification({
+    user: user._id,
+    title: 'Account verified',
+    body: 'Your account has been verified by admin.',
+  });
   await n.save();
+
   user.notifications.push(n._id);
   await user.save();
-  res.json({ message: 'User verified' });
+
+  res.json({ 
+    message: 'User verified successfully', 
+    verificationStatus: user.verificationStatus 
+  });
 };
 
-exports.confirmDeposit = async (req, res) => {
-  const txn = await Transaction.findById(req.params.id);
-  if(!txn) return res.status(404).json({ message: 'Transaction not found' });
-  txn.status = 'confirmed';
-  await txn.save();
-  const user = await User.findById(txn.user);
-  if(txn.method === 'crypto') {
-    const prices = await getCryptoPrices();
-    const coinPrice = prices[txn.coin];
-    const wallet = user.wallets.find(w => w.coin === txn.coin);
-    const cryptoAmount = Number(txn.amount) / coinPrice;
-    wallet.amount += cryptoAmount;
-    user.balance = calculateBalance(user.wallets, prices);
-    txn.cryptoAmount = cryptoAmount;
-    await txn.save();
-  } else if(txn.method === 'giftcard') {
-    const wallet = user.wallets.find(w => w.coin === 'USDT');
-    wallet.amount += txn.amount;
-    user.balance = calculateBalance(user.wallets, { USDT: 1 });
+exports.rejectUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+  
+    user.verificationStatus = "not_submitted";
+    user.verificationDoc = ""; 
+    user.verified = false;
+
+    await user.save();
+
+  
+    const n = new Notification({
+      user: user._id,
+      title: "Verification Rejected",
+      body: "Your submitted document was rejected by admin. Please submit again."
+    });
+    await n.save();
+
+    user.notifications.push(n._id);
+    await user.save();
+
+    res.json({ message: "User rejected successfully" });
+  } catch (err) {
+    console.error("rejectUser error:", err);
+    res.status(500).json({ message: "Failed to reject user" });
   }
-  await user.save();
-  const n = new Notification({ user: user._id, title: 'Deposit confirmed', body: `Your deposit of $${txn.amount} was confirmed.` });
-  await n.save();
-  user.notifications.push(n._id);
-  await user.save();
-  res.json({ message: 'Deposit confirmed', transaction: txn });
 };
+
+
+exports.confirmDeposit = async (req, res) => {
+  try {
+    const txn = await Transaction.findById(req.params.id);
+    if (!txn) return res.status(404).json({ message: 'Transaction not found' });
+
+    const user = await User.findById(txn.user);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    let prices, coinData, usdPrice, cryptoAmount;
+
+    if (txn.method === 'crypto') {
+      prices = await getCryptoPrices();
+      coinData = prices[txn.coin];
+
+      if (!coinData?.price) {
+        return res.status(400).json({ message: "Unsupported coin" });
+      }
+
+      usdPrice = coinData.price;
+    }
+
+    if (txn.purpose === 'gas') {
+      let usdAmount = txn.amount;
+
+      if (txn.method === 'crypto') {
+        cryptoAmount = Number(txn.amount);
+        usdAmount = cryptoAmount * usdPrice;
+
+        txn.cryptoAmount = cryptoAmount;
+      }
+
+      user.gasFee = Number(user.gasFee || 0) + Number(usdAmount);
+    }
+
+    else {
+      if (txn.method === 'crypto') {
+        const usdAmount = Number(txn.amount);
+        cryptoAmount = usdAmount / usdPrice;
+
+        let wallet = user.wallets.find(w => w.coin === txn.coin);
+        if (!wallet) {
+          wallet = { coin: txn.coin, amount: 0 };
+          user.wallets.push(wallet);
+        }
+
+        wallet.amount += cryptoAmount;
+        txn.cryptoAmount = cryptoAmount;
+
+        user.balance = calculateBalance(user.wallets, prices);
+      }
+
+      else if (txn.method === 'giftcard') {
+        let wallet = user.wallets.find(w => w.coin === 'USDT');
+        if (!wallet) {
+          wallet = { coin: 'USDT', amount: 0 };
+          user.wallets.push(wallet);
+        }
+
+        wallet.amount += Number(txn.amount);
+        user.balance = calculateBalance(user.wallets, { USDT: 1 });
+      }
+    }
+
+    txn.status = 'confirmed';
+    await txn.save();
+    await user.save();
+
+    await new Notification({
+      user: user._id,
+      title: 'Deposit confirmed',
+      body: `Your deposit of $${txn.amount} has been confirmed by admin.`
+    }).save();
+
+    res.json({ message: 'Deposit confirmed', transaction: txn });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error confirming deposit' });
+  }
+};
+
 
 exports.topUpGas = async (req, res) => {
   const { amount, method, coin } = req.body;
@@ -71,7 +249,7 @@ exports.topUpGas = async (req, res) => {
     const prices = await getCryptoPrices();
     if (!prices || !prices[coin]) return res.status(400).json({ message: "unsupported coin" });
 
-    usdAmount = Number(amount) * prices[coin]; // convert crypto to USD
+    usdAmount = Number(amount) * prices[coin]; 
   }
 
   user.gasFee += usdAmount;
@@ -84,7 +262,6 @@ exports.topUpGas = async (req, res) => {
   });
 
   await n.save();
-  user.notifications.push(n._id);
   await user.save();
 
   res.json({
@@ -95,21 +272,73 @@ exports.topUpGas = async (req, res) => {
 };
 
 exports.confirmWithdrawalPaid = async (req, res) => {
-  const txn = await Transaction.findById(req.params.id);
-  if(!txn) return res.status(404).json({ message: 'Transaction not found' });
-  txn.status = 'paid';
-  txn.paidAt = new Date();
-  await txn.save();
-  const user = await User.findById(txn.user);
-  const n = new Notification({ user: user._id, title: 'Withdrawal paid', body: `Your withdrawal of $${txn.amount} has been paid.`});
-  await n.save();
-  user.notifications.push(n._id);
-  await user.save();
-  res.json({ message: 'Marked as paid and user notified' });
+  try {
+    const txn = await Transaction.findById(req.params.id);
+    if (!txn)
+      return res.status(404).json({ message: 'Transaction not found' });
+
+    if (txn.type !== 'withdrawal') {
+      return res.status(400).json({ message: 'Transaction is not a withdrawal' });
+    }
+
+    if (txn.status !== 'pending') {
+      return res.status(400).json({ message: 'Transaction already processed' });
+    }
+
+    const user = await User.findById(txn.user);
+    if (!user)
+      return res.status(404).json({ message: 'User not found' });
+
+    if (txn.coin === 'USD') {
+      if (user.balance < txn.amount) {
+        return res.status(400).json({ message: 'Insufficient USD balance' });
+      }
+
+      user.balance -= txn.amount;
+    }
+
+    else {
+      const wallet = user.wallets.find(w => w.coin === txn.coin);
+
+      if (!wallet) {
+        return res.status(400).json({ message: `User does not have a ${txn.coin} wallet` });
+      }
+
+      if (!txn.cryptoAmount || txn.cryptoAmount <= 0) {
+        return res.status(400).json({ message: 'Invalid crypto withdrawal amount' });
+      }
+
+      if (wallet.amount < txn.cryptoAmount) {
+        return res.status(400).json({ message: 'Insufficient crypto balance' });
+      }
+
+      wallet.amount -= txn.cryptoAmount;
+    }
+
+    txn.status = 'paid';
+    txn.paidAt = new Date();
+
+    await user.save();
+    await txn.save();
+
+    await new Notification({
+      user: user._id,
+      title: 'Withdrawal Paid',
+      body: `Your withdrawal of $${txn.amount} has been paid.`
+    }).save();
+
+    res.json({ message: 'Withdrawal marked as paid successfully' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error processing withdrawal' });
+  }
 };
 
+
+
 exports.increaseBalance = async (req, res) => {
-  const { coin, amount } = req.body;  
+  const { coin, amount } = req.body;
 
   if (!coin || !amount)
     return res.status(400).json({ message: "coin and amount (USD) required" });
@@ -122,10 +351,13 @@ exports.increaseBalance = async (req, res) => {
   if (!prices) return res.status(500).json({ message: "Price fetch failed" });
 
   const coinPrice = prices[coin];
-  if (!coinPrice)
+  if (!coinPrice.price)
     return res.status(400).json({ message: "Unsupported coin" });
 
-  const cryptoToAdd = Number(amount) / coinPrice;
+
+
+  const cryptoToAdd = Number(amount) / coinPrice.price;
+
 
 
   const wallet = user.wallets.find(w => w.coin === coin);
@@ -156,7 +388,7 @@ exports.increaseBalance = async (req, res) => {
   });
 
   await n.save();
-  user.notifications.push(n._id);
+
   await user.save();
 
   
@@ -198,7 +430,6 @@ exports.sendMessageToUser = async (req, res) => {
   const n = new Notification({ user: userId, title: 'Message from admin', body: text });
   await n.save();
   const user = await User.findById(userId);
-  user.notifications.push(n._id);
   await user.save();
   res.json({ message: 'Message sent' });
 };
@@ -208,3 +439,17 @@ exports.getMessagesWithUser = async (req, res) => {
   const messages = await Message.find({ user: userId }).sort({ sentAt: 1 });
   res.json(messages);
 };
+
+exports.getAllTransactions = async (req, res) => {
+  try {
+    const txns = await Transaction.find()
+      .populate("user", "firstName lastName email")
+      .sort({ createdAt: -1 });
+
+    res.json(txns);
+  } catch (err) {
+    console.error("getAllTransactions:", err);
+    res.status(500).json({ message: "Failed to fetch transactions" });
+  }
+};
+

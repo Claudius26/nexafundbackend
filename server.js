@@ -16,12 +16,16 @@ const adminRoutes = require('./routes/admin');
 const txnRoutes = require('./routes/transactions');
 const uploadsRoutes = require('./routes/uploads');
 const cryptoRoutes = require('./routes/crypto');
+const messagesRoutes = require('./routes/messages');
+const notificationRoutes = require('./routes/notifications')
 
 const Message = require('./models/Message');
 const User = require('./models/User');
 
 const app = express();
 const server = http.createServer(app);
+
+
 
 const io = socketio(server, {
   cors: {
@@ -31,6 +35,8 @@ const io = socketio(server, {
     allowedHeaders: ['Content-Type', 'Authorization']
   }
 });
+
+app.set("io", io);
 
 
 app.use(cors({
@@ -46,7 +52,13 @@ app.use(express.json());
 app.use(cookieParser());
 
 
-app.use('/uploads', express.static('uploads'));
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true
+};
+
+app.use('/uploads', cors(corsOptions), express.static('uploads'));
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -54,6 +66,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/transactions', txnRoutes);
 app.use('/uploads', uploadsRoutes);
 app.use('/api/crypto', cryptoRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/notifications', notificationRoutes)
 
 
 connectDB(process.env.MONGO_URI);
