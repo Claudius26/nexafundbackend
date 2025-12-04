@@ -1,5 +1,7 @@
 const Notification = require('../models/Notification');
 
+
+
 exports.getUserNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({

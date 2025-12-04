@@ -271,6 +271,7 @@ exports.topUpGas = async (req, res) => {
   });
 };
 
+
 exports.confirmWithdrawalPaid = async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id);
@@ -304,15 +305,16 @@ exports.confirmWithdrawalPaid = async (req, res) => {
         return res.status(400).json({ message: `User does not have a ${txn.coin} wallet` });
       }
 
-      if (!txn.cryptoAmount || txn.cryptoAmount <= 0) {
+      if (!txn.amount || txn.amount <= 0) {
         return res.status(400).json({ message: 'Invalid crypto withdrawal amount' });
       }
 
-      if (wallet.amount < txn.cryptoAmount) {
+
+      if (wallet.amount < txn.amount) {
         return res.status(400).json({ message: 'Insufficient crypto balance' });
       }
 
-      wallet.amount -= txn.cryptoAmount;
+      wallet.amount -= txn.amount;
     }
 
     txn.status = 'paid';

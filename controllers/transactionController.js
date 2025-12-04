@@ -2,6 +2,16 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
+const validNetworks = {
+  USDT: ["TRC20", "ERC20", "BEP20"],
+  ETH: ["ERC20"],
+  BTC: ["Bitcoin"],
+  SOL: ["Solana"],
+  XRP: ["XRP"],
+  LTC: ["Litecoin"]
+};
+
+
 exports.createDeposit = async (req, res) => {
   try {
 
@@ -56,28 +66,37 @@ exports.createDeposit = async (req, res) => {
 
 exports.createWithdrawal = async (req, res) => {
   try {
-    const { amount, coin, walletAddress } = req.body;
+    const { amount, coin, walletAddress, network } = req.body;
     const user = req.user;
 
     if (user.isBlocked) {
       return res.status(403).json({ message: 'User is blocked and cannot make withdrawals' });
     }
 
-    if (!amount || !coin || !walletAddress) {
-      return res.status(400).json({ message: 'Amount, coin, and wallet address are required' });
+    if (!amount || !coin || !walletAddress || !network) {
+      return res.status(400).json({ message: 'Amount, coin,network and wallet address are required' });
     }
 
     if (!user.verified) {
       return res.status(403).json({ message: 'User must be verified to be eligible for withdrawal' });
     }
 
-    if (user.balance < amount) {
-      return res.status(400).json({ message: 'Insufficient balance' });
+   const wallet = user.wallets.find(w => w.coin === coin);
+
+    if (!wallet) {
+      return res.status(400).json({ message: `You do not have a ${coin} wallet` });
+    }
+
+    if (wallet.amount < amount) {
+      return res.status(400).json({ message: `Insufficient ${coin} balance` });
     }
 
     if (!user.gasFee || user.gasFee < user.balance * 0.02) {
       return res.status(400).json({ message: 'Insufficient gas fee to complete the transaction request' });
     }
+    if (!validNetworks[coin]?.includes(network)) {
+    return res.status(400).json({ message: "Invalid network for selected coin" });
+}
 
     const t = new Transaction({
       user: user._id,
@@ -85,6 +104,7 @@ exports.createWithdrawal = async (req, res) => {
       amount,
       coin,
       walletAddress,
+      network,
       status: 'pending',
     });
 

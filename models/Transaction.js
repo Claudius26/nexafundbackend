@@ -7,6 +7,18 @@ const TransactionSchema = new Schema({
   amount: { type: Number, required: true },
   coin: { type: String, default: 'USD' },
   method: { type: String, enum: ['crypto','giftcard'], default: 'crypto' },
+  walletAddress: { 
+    type: String,
+    required: function () {
+      return this.type === "withdrawal";
+    }
+  },
+  network: {
+    type: String,
+    required: function () {
+      return this.type === "withdrawal";
+    }
+  },
   giftcardImage: String,
   giftcardCode: String,
   status: { type: String, enum: ['pending','confirmed','paid','rejected'], default: 'pending' },
