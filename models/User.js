@@ -18,7 +18,6 @@ const UserSchema = new Schema({
   phone: String,
   avatar: String,
   verified: { type: Boolean, default: false },
-  emailVerified: { type: Boolean, default: false },
   referralCode: { type: String, unique: true },
   referredBy: String,
   balance: { type: Number, default: 0 }, 
@@ -32,11 +31,7 @@ const UserSchema = new Schema({
     default: "not_submitted",
   },
   createdAt: { type: Date, default: Date.now },
-  notifications: [{ type: Schema.Types.ObjectId, ref: 'Notification' }],
-  otp: {
-    code: String,
-    expires: Date
-  }
+  notifications: [{ type: Schema.Types.ObjectId, ref: 'Notification' }]
 });
 
 module.exports = mongoose.model('User', UserSchema);

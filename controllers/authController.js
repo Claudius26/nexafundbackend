@@ -3,7 +3,6 @@ const Admin = require('../models/Admin');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const genReferral = require('../utils/generateReferral');
-const { sendEmail } = require('../utils/email');
 const Notification = require('../models/Notification');
 const Transaction = require('../models/Transaction');
 
@@ -35,8 +34,7 @@ exports.register = async (req, res) => {
       country,
       password: passwordHash,
       referralCode: userReferral,
-      wallets,
-      emailVerified: false
+      wallets
     });
 
     if (referralCode) {
@@ -55,56 +53,16 @@ exports.register = async (req, res) => {
       newUser.referredBy = referralCode;
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    newUser.otp = { code: otp, expires: new Date(Date.now() + 15 * 60 * 1000) };
     await newUser.save();
-    sendEmail(newUser.email, 'Verify your email', `Your OTP is ${otp}`, `<p>Your OTP is <b>${otp}</b></p>`).catch(console.error);
 
     const token = jwt.sign({ id: newUser._id, role: 'user' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-    res.status(201).json({ message: 'Registered successfully. Please verify your email.', token, user: { id: newUser._id, email: newUser.email, firstName: newUser.firstName, lastName: newUser.lastName, emailVerified: false, wallets } });
+    res.status(201).json({ message: 'Registration Successful.', token, user: { id: newUser._id, email: newUser.email, firstName: newUser.firstName, lastName: newUser.lastName, wallets } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-exports.verifyEmailOtp = async (req, res) => {
-  
-  try {
-    const { email, otp } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (!user.otp) return res.status(400).json({ message: 'OTP not found. Request a new code.' });
-    if (user.otp.expires < new Date()) return res.status(400).json({ message: 'OTP expired. Request a new code.' });
-    if (user.otp.code !== otp) return res.status(400).json({ message: 'Invalid OTP' });
-
-    user.emailVerified = true;
-    user.otp = null;
-    await user.save();
-    res.json({ message: 'Email verified successfully.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-exports.resendOtp = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.otp = { code: otp, expires: new Date(Date.now() + 15 * 60 * 1000) };
-    await user.save();
-    sendEmail(user.email, 'Your new OTP', `Your OTP is ${otp}`, `<p>Your OTP is <b>${otp}</b></p>`).catch(console.error);
-    res.json({ message: 'OTP sent to your email.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
 
 exports.loginUser = async (req, res) => {
   try {

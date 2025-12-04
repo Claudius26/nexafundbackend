@@ -6,6 +6,7 @@ const { uploadAvatar, uploadDoc } = require('../middleware/uploadMiddleware');
 
 router.get('/me', userAuth, userController.getProfile);
 router.put('/me', userAuth, userController.updateProfile);
+router.put('/me/change-password', userAuth, userController.changePassword);
 router.post('/me/avatar', userAuth, uploadAvatar.single('avatar'), userController.uploadAvatar);
 router.post('/me/verify-doc', userAuth, uploadDoc.single('doc'), userController.uploadVerificationDoc);
 
