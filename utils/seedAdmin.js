@@ -1,5 +1,5 @@
 const Admin = require('../models/Admin');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 async function seedAdminIfNeeded() {
   const username = process.env.ADMIN_USERNAME;
