@@ -18,6 +18,8 @@ const UserSchema = new Schema({
   phone: String,
   avatar: String,
   verified: { type: Boolean, default: false },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
   referralCode: { type: String, unique: true },
   referredBy: String,
   balance: { type: Number, default: 0 }, 

@@ -18,6 +18,7 @@ const uploadsRoutes = require('./routes/uploads');
 const cryptoRoutes = require('./routes/crypto');
 const messagesRoutes = require('./routes/messages');
 const notificationRoutes = require('./routes/notifications')
+const passwordResetRoutes = require("./routes/passwordReset");
 
 const Message = require('./models/Message');
 const User = require('./models/User');
@@ -68,6 +69,7 @@ app.use('/uploads', uploadsRoutes);
 app.use('/api/crypto', cryptoRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationRoutes)
+app.use("/api/auth", passwordResetRoutes);
 
 
 connectDB(process.env.MONGO_URI);
