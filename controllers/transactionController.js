@@ -1,6 +1,7 @@
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { getCryptoPrices } = require("../services/cryptoPrice");
 
 const validNetworks = {
   USDT: ["TRC20", "ERC20", "BEP20"],
@@ -70,42 +71,59 @@ exports.createWithdrawal = async (req, res) => {
     const user = req.user;
 
     if (user.isBlocked) {
-      return res.status(403).json({ message: 'User is blocked and cannot make withdrawals' });
+      return res.status(403).json({ message: "User is blocked and cannot make withdrawals" });
     }
 
     if (!amount || !coin || !walletAddress || !network) {
-      return res.status(400).json({ message: 'Amount, coin,network and wallet address are required' });
+      return res.status(400).json({ message: "Amount, coin, network and wallet address are required" });
     }
 
     if (!user.verified) {
-      return res.status(403).json({ message: 'User must be verified to be eligible for withdrawal' });
+      return res.status(403).json({ message: "User must be verified to be eligible for withdrawal" });
     }
 
-   const wallet = user.wallets.find(w => w.coin === coin);
-
+    const wallet = user.wallets.find(w => w.coin === coin);
     if (!wallet) {
       return res.status(400).json({ message: `You do not have a ${coin} wallet` });
     }
 
-    if (wallet.amount < amount) {
-      return res.status(400).json({ message: `Insufficient ${coin} balance` });
+    const coinData = await getCryptoPrices();
+    const coinPrice = coinData[coin]?.price;
+    
+    if (!coinPrice || coinPrice <= 0) {
+      return res.status(500).json({ message: "Unable to fetch crypto price" });
+    }
+
+
+    const cryptoAmountNeeded = amount / coinPrice;
+    console.log(wallet.amount)
+    console.log(cryptoAmountNeeded)
+
+    if (wallet.amount < cryptoAmountNeeded) {
+      return res.status(400).json({
+        message: `Insufficient ${coin} balance. You need ${cryptoAmountNeeded.toFixed(6)} ${coin}.`
+      });
     }
 
     if (!user.gasFee || user.gasFee < user.balance * 0.02) {
-      return res.status(400).json({ message: 'Insufficient gas fee to complete the transaction request' });
+      return res.status(400).json({
+        message: "Insufficient gas fee to complete the transaction request"
+      });
     }
+
     if (!validNetworks[coin]?.includes(network)) {
-    return res.status(400).json({ message: "Invalid network for selected coin" });
-}
+      return res.status(400).json({ message: "Invalid network for selected coin" });
+    }
 
     const t = new Transaction({
       user: user._id,
-      type: 'withdrawal',
-      amount,
+      type: "withdrawal",
+      amountUSD: amount,
+      amountCrypto: cryptoAmountNeeded,
       coin,
       walletAddress,
       network,
-      status: 'pending',
+      status: "pending"
     });
 
     await t.save();
@@ -113,16 +131,20 @@ exports.createWithdrawal = async (req, res) => {
     const n = new Notification({
       user: user._id,
       isAdmin: true,
-      title: 'Withdrawal request',
+      title: "Withdrawal request",
       body: `User ${user.email} requested a withdrawal of $${amount}.`
     });
 
     await n.save();
 
-    res.json({ message: 'Withdrawal requested, waiting admin confirmation', transaction: t });
+    res.json({
+      message: "Withdrawal requested, waiting admin confirmation",
+      transaction: t
+    });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Server error creating withdrawal' });
+    res.status(500).json({ message: "Server error creating withdrawal" });
   }
 };
 
