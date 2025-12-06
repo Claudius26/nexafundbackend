@@ -24,7 +24,8 @@ exports.register = async (req, res) => {
     }
 
     const supportedCoins = ['BTC', 'LTC', 'USDT', 'XRP', 'SOL', 'ETH'];
-    const wallets = supportedCoins.map(coin => ({ coin, balance: 0 }));
+    const wallets = supportedCoins.map(coin => ({coin,amount:0,amountUsd: 0
+    }));
 
     const newUser = new User({
       firstName,

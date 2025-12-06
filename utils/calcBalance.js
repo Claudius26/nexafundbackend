@@ -2,10 +2,17 @@ function calculateBalance(wallets, prices) {
   let total = 0;
 
   wallets.forEach(w => {
-    const coinPrice = prices[w.coin];
-    if (coinPrice.price) {
-      total += w.amount * coinPrice.price; 
-    }
+    const coinData = prices[w.coin];
+
+    if (!coinData) return;
+
+    const price = typeof coinData === "number"
+      ? coinData
+      : coinData.price;
+
+    if (!price) return;
+
+    total += w.amount * price;
   });
 
   return Number(total.toFixed(2));

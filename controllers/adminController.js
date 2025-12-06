@@ -8,6 +8,9 @@ const calculateBalance = require('../utils/calcBalance');
 
 const Admin = require("../models/Admin");
 const bcrypt = require("bcryptjs");
+const { refreshWalletValues } = require("../utils/refreshWalletBalance");
+
+
 
 
 exports.getAdminInfo = async (req, res) => {
@@ -95,6 +98,7 @@ exports.listUsers = async (req, res) => {
 exports.getUser = async (req, res) => {
   const user = await User.findById(req.params.id).select('-password');
   if(!user) return res.status(404).json({ message: 'Not found' });
+  await refreshWalletValues(user)
   res.json(user);
 };
 
@@ -152,7 +156,6 @@ exports.rejectUser = async (req, res) => {
   }
 };
 
-
 exports.confirmDeposit = async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id);
@@ -175,16 +178,7 @@ exports.confirmDeposit = async (req, res) => {
     }
 
     if (txn.purpose === 'gas') {
-      let usdAmount = txn.amount;
-
-      if (txn.method === 'crypto') {
-        cryptoAmount = Number(txn.amount);
-        usdAmount = cryptoAmount * usdPrice;
-
-        txn.cryptoAmount = cryptoAmount;
-      }
-
-      user.gasFee = Number(user.gasFee || 0) + Number(usdAmount);
+      user.gasFee +=txn.amount;
     }
 
     else {
@@ -194,11 +188,12 @@ exports.confirmDeposit = async (req, res) => {
 
         let wallet = user.wallets.find(w => w.coin === txn.coin);
         if (!wallet) {
-          wallet = { coin: txn.coin, amount: 0 };
+          wallet = { coin: txn.coin, amount: 0,amountUsd: 0};
           user.wallets.push(wallet);
         }
 
         wallet.amount += cryptoAmount;
+        wallet.amountUsd += txn.amount;
         txn.cryptoAmount = cryptoAmount;
 
         user.balance = calculateBalance(user.wallets, prices);
@@ -207,17 +202,18 @@ exports.confirmDeposit = async (req, res) => {
       else if (txn.method === 'giftcard') {
         let wallet = user.wallets.find(w => w.coin === 'USDT');
         if (!wallet) {
-          wallet = { coin: 'USDT', amount: 0 };
+          wallet = { coin: 'USDT', amount: 0,amountUsd:0 };
           user.wallets.push(wallet);
         }
 
-        wallet.amount += Number(txn.amount);
+        wallet.amountUsd += Number(txn.amount);
         user.balance = calculateBalance(user.wallets, { USDT: 1 });
       }
     }
 
     txn.status = 'confirmed';
     await txn.save();
+    await refreshWalletValues(user);
     await user.save();
 
     await new Notification({
@@ -253,7 +249,6 @@ exports.topUpGas = async (req, res) => {
   }
 
   user.gasFee += usdAmount;
-  await user.save();
 
   const n = new Notification({
     user: user._id,
@@ -305,28 +300,32 @@ exports.confirmWithdrawalPaid = async (req, res) => {
         return res.status(400).json({ message: `User does not have a ${txn.coin} wallet` });
       }
 
-      if (!txn.amount || txn.amount <= 0) {
+      if (!txn.cryptoAmount || txn.cryptoAmount <= 0) {
         return res.status(400).json({ message: 'Invalid crypto withdrawal amount' });
       }
 
 
-      if (wallet.amount < txn.amount) {
+      if (wallet.amount < txn.cryptoAmount) {
+        return res.status(400).json({ message: 'Insufficient crypto balance' });
+      }
+       if (wallet.amountUsd < txn.amount) {
         return res.status(400).json({ message: 'Insufficient crypto balance' });
       }
 
-      wallet.amount -= txn.amount;
+      wallet.amount -= txn.cryptoAmount;
+      wallet.amountUsd -= txn.amount;
     }
 
     txn.status = 'paid';
     txn.paidAt = new Date();
-
-    await user.save();
     await txn.save();
+    await refreshWalletValues(user);
+    await user.save();
 
     await new Notification({
       user: user._id,
       title: 'Withdrawal Paid',
-      body: `Your withdrawal of $${txn.amount} has been paid.`
+      body: `Your withdrawal of $${txn.cryptoAmount} ${txn.coin} to ${txn.walletAddress} has been completed.`
     }).save();
 
     res.json({ message: 'Withdrawal marked as paid successfully' });
@@ -367,11 +366,11 @@ exports.increaseBalance = async (req, res) => {
 
 
   wallet.amount += cryptoToAdd;
+  wallet.amountUsd += wallet.amount * coinPrice.price;
 
   
   user.balance = calculateBalance(user.wallets, prices);
 
-  await user.save();
 
   const txn = new Transaction({
     user: user._id,
@@ -388,9 +387,8 @@ exports.increaseBalance = async (req, res) => {
     title: "Balance Top-up",
     body: `Admin added ${cryptoToAdd.toFixed(8)} ${coin} (~$${amount}) to your wallet.`
   });
-
+  await refreshWalletValues(user);
   await n.save();
-
   await user.save();
 
   

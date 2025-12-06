@@ -94,12 +94,13 @@ exports.createWithdrawal = async (req, res) => {
       return res.status(500).json({ message: "Unable to fetch crypto price" });
     }
 
-
     const cryptoAmountNeeded = amount / coinPrice;
-    console.log(wallet.amount)
-    console.log(cryptoAmountNeeded)
-
     if (wallet.amount < cryptoAmountNeeded) {
+      return res.status(400).json({
+        message: `Insufficient ${coin} balance. You need ${cryptoAmountNeeded.toFixed(6)} ${coin}.`
+      });
+    }
+    if(wallet.amountUsd < amount){
       return res.status(400).json({
         message: `Insufficient ${coin} balance. You need ${cryptoAmountNeeded.toFixed(6)} ${coin}.`
       });
@@ -115,31 +116,31 @@ exports.createWithdrawal = async (req, res) => {
       return res.status(400).json({ message: "Invalid network for selected coin" });
     }
 
-    const t = new Transaction({
+    const txn = new Transaction({
       user: user._id,
       type: "withdrawal",
-      amountUSD: amount,
-      amountCrypto: cryptoAmountNeeded,
+      amount: amount,
       coin,
+      cryptoAmount: cryptoAmountNeeded,
       walletAddress,
       network,
       status: "pending"
     });
 
-    await t.save();
+    await txn.save();
 
     const n = new Notification({
       user: user._id,
       isAdmin: true,
       title: "Withdrawal request",
-      body: `User ${user.email} requested a withdrawal of $${amount}.`
+      body: `${user.email} requested a withdrawal of $${amount}.`
     });
 
     await n.save();
 
     res.json({
       message: "Withdrawal requested, waiting admin confirmation",
-      transaction: t
+      transaction: txn
     });
 
   } catch (err) {

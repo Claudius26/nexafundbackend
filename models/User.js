@@ -5,7 +5,8 @@ const supportedCrypto = ['SOL','BTC','USDT','LTC','XRP','ETH'];
 
 const WalletSchema = new Schema({
   coin: { type: String, enum: supportedCrypto },
-  amount: { type: Number, default: 0 }
+  amount: { type: Number, default: 0 },
+  amountUsd: { type: Number, default: 0 } 
 }, { _id: false });
 
 const UserSchema = new Schema({

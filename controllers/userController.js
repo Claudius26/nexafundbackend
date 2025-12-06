@@ -1,10 +1,12 @@
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { refreshWalletValues } = require("../utils/refreshWalletBalance");
 
 const bcrypt = require("bcryptjs");
 
 exports.getProfile = async (req, res) => {
   const user = await User.findById(req.user._id).select('-password').populate('notifications');
+  await refreshWalletValues(user)
   res.json(user);
 };
 
