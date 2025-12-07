@@ -31,8 +31,11 @@ exports.createDeposit = async (req, res) => {
     }
 
     if (method === 'giftcard') {
-      if (req.file) giftcardImage = req.file.path || req.file.filename;
-      else if (!giftcardCode) return res.status(400).json({ message: 'Provide either gift card file or code' });
+       if (req.file) {
+       giftcardImage = `/uploads/giftcards/${req.file.filename}`;
+        } else if (!giftcardCode) {
+         return res.status(400).json({ message: 'Provide either gift card file or code' });
+     }
     }
 
     const t = new Transaction({
