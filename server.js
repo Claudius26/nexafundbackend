@@ -53,14 +53,6 @@ app.use(express.json());
 app.use(cookieParser());
 
 
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || '*',
-  credentials: true
-};
-
-app.use('/uploads', cors(corsOptions), express.static('uploads'));
-
-
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
@@ -78,45 +70,103 @@ seedAdmin();
 
 const connectedClients = {};
 
-io.on('connection', (socket) => {
-  console.log('Socket connected:', socket.id);
+// io.on('connection', (socket) => {
+//   console.log('Socket connected:', socket.id);
 
-  socket.on('identify', ({ userId, adminId }) => {
-    if(userId) connectedClients[`user_${userId}`] = socket.id;
-    if(adminId) connectedClients[`admin_${adminId}`] = socket.id;
+//   socket.on('identify', ({ userId, adminId }) => {
+//     if(userId) connectedClients[`user_${userId}`] = socket.id;
+//     if(adminId) connectedClients[`admin_${adminId}`] = socket.id;
+//   });
+
+//   socket.on('send_message', async ({ fromAdmin, adminId, userId, text }) => {
+//     const msg = new Message({ fromAdmin, admin: adminId, user: userId, text });
+//     await msg.save();
+
+//     const userSocket = connectedClients[`user_${userId}`];
+//     const adminSocket = connectedClients[`admin_${adminId}`];
+//     if(userSocket) io.to(userSocket).emit('new_message', msg);
+//     if(adminSocket) io.to(adminSocket).emit('new_message', msg);
+
+//     const Notification = require('./models/Notification');
+//     const n = new Notification({
+//       user: userId,
+//       title: fromAdmin ? 'Message from admin' : 'Reply from user',
+//       body: text
+//     });
+//     await n.save();
+
+//     const user = await User.findById(userId);
+//     if(user) {
+//       user.notifications.push(n._id);
+//       await user.save();
+//     }
+//   });
+
+//   socket.on('disconnect', () => {
+//     for(const k of Object.keys(connectedClients)) {
+//       if(connectedClients[k] === socket.id) delete connectedClients[k];
+//     }
+//     console.log('Socket disconnected:', socket.id);
+//   });
+// });
+
+
+io.on('connection', (socket) => {
+  console.log("Socket connected:", socket.id);
+
+  // IDENTIFY ADMIN OR USER
+  socket.on("identify", ({ userId, adminId }) => {
+    if (userId) {
+      connectedClients[`user_${userId}`] = socket.id;
+    }
+    if (adminId) {
+      connectedClients[`admin_${adminId}`] = socket.id;
+    }
   });
 
-  socket.on('send_message', async ({ fromAdmin, adminId, userId, text }) => {
-    const msg = new Message({ fromAdmin, admin: adminId, user: userId, text });
+  socket.on("fetch_messages", async ({ userId, adminId }) => {
+    try {
+      let messages;
+
+      if (userId && !adminId) {
+        messages = await Message.find({ user: userId }).sort({ sentAt: 1 });
+      }
+
+      if (adminId && userId) {
+        messages = await Message.find({ user: userId }).sort({ sentAt: 1 });
+      }
+
+      socket.emit("messages_history", messages);
+    } catch (err) {
+      console.error("fetch_messages error:", err);
+    }
+  });
+
+  socket.on("send_message", async ({ fromAdmin, adminId, userId, text }) => {
+    const msg = new Message({
+      fromAdmin,
+      admin: fromAdmin ? adminId : null,
+      user: userId,
+      text
+    });
+
     await msg.save();
 
     const userSocket = connectedClients[`user_${userId}`];
     const adminSocket = connectedClients[`admin_${adminId}`];
-    if(userSocket) io.to(userSocket).emit('new_message', msg);
-    if(adminSocket) io.to(adminSocket).emit('new_message', msg);
 
-    const Notification = require('./models/Notification');
-    const n = new Notification({
-      user: userId,
-      title: fromAdmin ? 'Message from admin' : 'Reply from user',
-      body: text
-    });
-    await n.save();
+    if (userSocket) io.to(userSocket).emit("new_message", msg);
+    if (adminSocket) io.to(adminSocket).emit("new_message", msg);
 
-    const user = await User.findById(userId);
-    if(user) {
-      user.notifications.push(n._id);
-      await user.save();
-    }
   });
 
-  socket.on('disconnect', () => {
-    for(const k of Object.keys(connectedClients)) {
-      if(connectedClients[k] === socket.id) delete connectedClients[k];
+  socket.on("disconnect", () => {
+    for (const key in connectedClients) {
+      if (connectedClients[key] === socket.id) delete connectedClients[key];
     }
-    console.log('Socket disconnected:', socket.id);
   });
 });
+
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server listening on ${PORT}`));
