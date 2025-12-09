@@ -9,5 +9,7 @@ router.put('/me', userAuth, userController.updateProfile);
 router.put('/me/change-password', userAuth, userController.changePassword);
 router.post('/me/avatar', userAuth, uploadAvatar.single('avatar'), userController.uploadAvatar);
 router.post('/me/verify-doc', userAuth, uploadDoc.single('doc'), userController.uploadVerificationDoc);
+router.get('/my-data', userAuth, userController.getMyData);
+
 
 module.exports = router;

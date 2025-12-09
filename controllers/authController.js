@@ -64,21 +64,51 @@ exports.register = async (req, res) => {
   }
 };
 
-
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).populate("notifications");
     if (!user) return res.status(404).json({ message: 'User not found' });
+
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
-    const token = jwt.sign({ id: user._id, role: 'user' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-    res.json({ token, user: { id: user._id, email: user.email, firstName: user.firstName, lastName: user.lastName, emailVerified: user.emailVerified, wallets: user.wallets } });
+
+    const token = jwt.sign(
+      { id: user._id, role: 'user' },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    const safeUser = {
+      _id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      address: user.address,
+      country: user.country,
+      phone: user.phone,
+      avatar: user.avatar,
+      verified: user.verified,
+      referralCode: user.referralCode,
+      referredBy: user.referredBy,
+      balance: user.balance,
+      gasFee: user.gasFee,
+      wallets: user.wallets,
+      isBlocked: user.isBlocked,
+      verificationDoc: user.verificationDoc,
+      verificationStatus: user.verificationStatus,
+      createdAt: user.createdAt,
+      notifications: user.notifications,
+    };
+
+    res.json({ token, user: safeUser });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 exports.loginAdmin = async (req, res) => {
   try {

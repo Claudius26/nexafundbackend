@@ -21,6 +21,9 @@ exports.markNotificationAsRead = async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
     if (!notification) return res.status(404).json({ message: 'Notification not found' });
+    if (notification.read) {
+      return res.status(400).json({ message: 'Notification is already read' });
+    }
 
     notification.read = true;
     await notification.save();
@@ -39,6 +42,7 @@ exports.markAllNotificationsAsRead = async (req, res) => {
       { user: req.user._id, isAdmin: false },
       { read: true }
     );
+
 
     res.json({ message: 'All notifications marked as read' });
   } catch (err) {
@@ -69,6 +73,10 @@ exports.markAdminNotificationAsRead = async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
     if (!notification) return res.status(404).json({ message: 'Notification not found' });
+
+    if (notification.read) {
+      return res.status(400).json({ message: 'Notification is already read' });
+    }
 
     notification.read = true;
     await notification.save();

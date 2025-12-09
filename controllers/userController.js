@@ -12,27 +12,23 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   const updates = {};
-  ['firstName','lastName','email','phone'].forEach(k => {
-    if(req.body[k]) updates[k] = req.body[k];
+  ["firstName", "lastName", "email", "phone", "country", "address"].forEach(k => {
+    if (req.body[k] !== undefined) updates[k] = req.body[k];
   });
-  
-  const user = await User.findById(req.user._id);
-  if(!user) return res.status(404).json({ message: 'Not found' });
 
-  if(updates.email && updates.email !== user.email) {
-    const otp = Math.floor(100000 + Math.random()*900000).toString();
-    user.otp = { code: otp, expires: new Date(Date.now() + 1000*60*15) };
-    await user.save();
-    await require('../utils/email').sendEmail(updates.email, 'Email change OTP', `Your OTP is ${otp}`, `<p>OTP: ${otp}</p>`);
-    user.email = updates.email;
-    user.emailVerified = false;
-  }
-  ['firstName','lastName','phone'].forEach(f => {
-    if(req.body[f]) user[f] = req.body[f];
-  });
+  const user = await User.findById(req.user._id);
+  if (!user) return res.status(404).json({ message: "Not found" });
+
+  Object.assign(user, updates);
+
   await user.save();
-  res.json({ message: 'Profile updated' });
+
+  return res.json({ 
+    success: true,
+    message: "Profile updated successfully" 
+  });
 };
+
 
 exports.uploadAvatar = async (req, res) => {
   if(!req.file) return res.status(400).json({ message: 'No file' });
@@ -95,3 +91,14 @@ exports.changePassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+exports.getMyData = async (req, res) => {
+  const user = await User.findById(req.user._id)
+    .select("firstName lastName email phone country address avatar verified verificationStatus");
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  res.json(user);
+};
+
