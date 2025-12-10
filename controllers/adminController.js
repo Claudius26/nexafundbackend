@@ -249,14 +249,6 @@ exports.topUpGas = async (req, res) => {
   }
 
   user.gasFee += usdAmount;
-
-  const n = new Notification({
-    user: user._id,
-    title: 'Gas topped up',
-    body: `Admin topped up your gas fee by ~$${usdAmount.toFixed(2)}${coin ? ` (${amount} ${coin})` : ''}.`
-  });
-
-  await n.save();
   await user.save();
 
   res.json({
@@ -381,14 +373,7 @@ exports.increaseBalance = async (req, res) => {
     status: "confirmed"
   });
   await txn.save();
-
-  const n = new Notification({
-    user: user._id,
-    title: "Balance Top-up",
-    body: `Admin added ${cryptoToAdd.toFixed(8)} ${coin} (~$${amount}) to your wallet.`
-  });
   await refreshWalletValues(user);
-  await n.save();
   await user.save();
 
   
