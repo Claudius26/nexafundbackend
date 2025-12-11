@@ -24,7 +24,7 @@ exports.register = async (req, res) => {
     }
 
     
-    const supportedCrypto = [
+    const supportedCoins = [
       'BTC', 'ETH', 'USDT', 'USDC', 'BNB',
       'XRP', 'ADA', 'DOGE', 'SOL', 'TRX',
       'DOT', 'MATIC', 'LTC', 'AVAX', 'LINK',
