@@ -23,7 +23,13 @@ exports.register = async (req, res) => {
       userReferral = genReferral();
     }
 
-    const supportedCoins = ['BTC', 'LTC', 'USDT', 'XRP', 'SOL', 'ETH'];
+    
+    const supportedCrypto = [
+      'BTC', 'ETH', 'USDT', 'USDC', 'BNB',
+      'XRP', 'ADA', 'DOGE', 'SOL', 'TRX',
+      'DOT', 'MATIC', 'LTC', 'AVAX', 'LINK',
+      'ATOM', 'XLM', 'ETC', 'BCH', 'FIL'
+    ];
     const wallets = supportedCoins.map(coin => ({coin,amount:0,amountUsd: 0
     }));
 
