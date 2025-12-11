@@ -8,10 +8,25 @@ const coinIdMap = {
   BTC: "bitcoin",
   ETH: "ethereum",
   USDT: "tether",
-  LTC: "litecoin",
+  USDC: "usd-coin",
+  BNB: "binancecoin",
   XRP: "ripple",
+  ADA: "cardano",
+  DOGE: "dogecoin",
   SOL: "solana",
+  TRX: "tron",
+  DOT: "polkadot",
+  MATIC: "polygon",
+  LTC: "litecoin",
+  AVAX: "avalanche-2",
+  LINK: "chainlink",
+  ATOM: "cosmos",
+  XLM: "stellar",
+  ETC: "ethereum-classic",
+  BCH: "bitcoin-cash",
+  FIL: "filecoin",
 };
+
 
 async function getCryptoPrices() {
   const now = Date.now();

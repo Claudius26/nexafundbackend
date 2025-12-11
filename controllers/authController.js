@@ -30,6 +30,7 @@ exports.register = async (req, res) => {
       'DOT', 'MATIC', 'LTC', 'AVAX', 'LINK',
       'ATOM', 'XLM', 'ETC', 'BCH', 'FIL'
     ];
+    
     const wallets = supportedCoins.map(coin => ({coin,amount:0,amountUsd: 0
     }));
 
