@@ -1,7 +1,13 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const supportedCrypto = ['SOL','BTC','USDT','LTC','XRP','ETH'];
+const supportedCrypto = [
+  'BTC', 'ETH', 'USDT', 'USDC', 'BNB',
+  'XRP', 'ADA', 'DOGE', 'SOL', 'TRX',
+  'DOT', 'MATIC', 'LTC', 'AVAX', 'LINK',
+  'ATOM', 'XLM', 'ETC', 'BCH', 'FIL'
+];
+
 
 const WalletSchema = new Schema({
   coin: { type: String, enum: supportedCrypto },
