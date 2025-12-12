@@ -4,13 +4,28 @@ const Notification = require('../models/Notification');
 const { getCryptoPrices } = require("../services/cryptoPrice");
 
 const validNetworks = {
-  USDT: ["TRC20", "ERC20", "BEP20"],
-  ETH: ["ERC20"],
   BTC: ["Bitcoin"],
-  SOL: ["Solana"],
+  ETH: ["ERC20"],
+  LTC: ["Litecoin"],
   XRP: ["XRP"],
-  LTC: ["Litecoin"]
+  SOL: ["Solana"],
+  USDT: ["ERC20", "TRC20", "BEP20"],
+  USDC: ["ERC20", "SOL", "MATIC"],
+  BNB: ["BEP20"],
+  ADA: ["Cardano"],
+  DOGE: ["Dogecoin"],
+  TRX: ["Tron"],
+  DOT: ["Polkadot"],
+  MATIC: ["Polygon"],
+  AVAX: ["Avalanche C-Chain"],
+  LINK: ["ERC20"],
+  ATOM: ["Cosmos"],
+  XLM: ["Stellar"],
+  ETC: ["Ethereum Classic"],
+  BCH: ["Bitcoin Cash"],
+  FIL: ["Filecoin"]
 };
+
 
 
 exports.createDeposit = async (req, res) => {
@@ -115,7 +130,9 @@ exports.createWithdrawal = async (req, res) => {
       });
     }
 
-    if (!validNetworks[coin]?.includes(network)) {
+    const allowedNetworks = validNetworks[coin] || ["ERC20"];
+
+    if (!allowedNetworks.includes(network)) {
       return res.status(400).json({ message: "Invalid network for selected coin" });
     }
 

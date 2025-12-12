@@ -112,6 +112,7 @@ exports.verifyUser = async (req, res) => {
   await user.save();
   const n = new Notification({
     user: user._id,
+    isAdmin: false,
     title: 'Account verified',
     body: 'Your account has been verified by admin.',
   });
@@ -141,6 +142,7 @@ exports.rejectUser = async (req, res) => {
   
     const n = new Notification({
       user: user._id,
+      isAdmin: false,
       title: "Verification Rejected",
       body: "Your submitted document was rejected by admin. Please submit again."
     });
@@ -155,6 +157,8 @@ exports.rejectUser = async (req, res) => {
     res.status(500).json({ message: "Failed to reject user" });
   }
 };
+
+
 
 exports.confirmDeposit = async (req, res) => {
   try {
@@ -218,6 +222,7 @@ exports.confirmDeposit = async (req, res) => {
 
     await new Notification({
       user: user._id,
+      isAdmin: false,
       title: 'Deposit confirmed',
       body: `Your deposit of $${txn.amount} has been confirmed by admin.`
     }).save();
@@ -316,6 +321,7 @@ exports.confirmWithdrawalPaid = async (req, res) => {
 
     await new Notification({
       user: user._id,
+      isAdmin: false,
       title: 'Withdrawal Paid',
       body: `Your withdrawal of $${txn.cryptoAmount} ${txn.coin} to ${txn.walletAddress} has been completed.`
     }).save();
