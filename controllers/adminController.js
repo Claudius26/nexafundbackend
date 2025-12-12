@@ -368,17 +368,6 @@ exports.increaseBalance = async (req, res) => {
 
   
   user.balance = calculateBalance(user.wallets, prices);
-
-
-  const txn = new Transaction({
-    user: user._id,
-    type: "admin_topup",
-    amount: Number(amount),
-    coin,
-    cryptoAmount: cryptoToAdd,
-    status: "confirmed"
-  });
-  await txn.save();
   await refreshWalletValues(user);
   await user.save();
 
