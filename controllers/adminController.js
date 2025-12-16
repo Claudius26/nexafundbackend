@@ -109,7 +109,6 @@ exports.verifyUser = async (req, res) => {
   user.verified = true;
   user.verificationStatus = "verified";
 
-  await user.save();
   const n = new Notification({
     user: user._id,
     isAdmin: false,
@@ -218,14 +217,19 @@ exports.confirmDeposit = async (req, res) => {
     txn.status = 'confirmed';
     await txn.save();
     await refreshWalletValues(user);
-    await user.save();
 
-    await new Notification({
-      user: user._id,
-      isAdmin: false,
-      title: 'Deposit confirmed',
-      body: `Your deposit of $${txn.amount} has been confirmed by admin.`
-    }).save();
+
+    const n = new Notification({
+    user: user._id,
+    isAdmin: false,
+    title: 'Deposit confirmed',
+    body: `Your deposit of $${txn.amount} has been confirmed.`
+  });
+  await n.save();
+
+  user.notifications.push(n._id);
+
+  await user.save();
 
     res.json({ message: 'Deposit confirmed', transaction: txn });
 
@@ -284,13 +288,6 @@ exports.deductGas = async (req, res) => {
 
     user.gasFee -= deduction;
     await user.save();
-
-    await new Notification({
-      user: user._id,
-      isAdmin: false,
-      title: "Gas Fee Deducted",
-      body: `An amount of $${deduction} was deducted from your gas balance by admin.`,
-    }).save();
 
     res.json({
       message: "Gas fee deducted successfully",
