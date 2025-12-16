@@ -136,14 +136,11 @@ exports.rejectUser = async (req, res) => {
     user.verificationDoc = ""; 
     user.verified = false;
 
-    await user.save();
-
-  
     const n = new Notification({
       user: user._id,
       isAdmin: false,
       title: "Verification Rejected",
-      body: "Your submitted document was rejected by admin. Please submit again."
+      body: "Your submitted document was rejected. Please submit again."
     });
     await n.save();
 
@@ -223,7 +220,7 @@ exports.confirmDeposit = async (req, res) => {
     user: user._id,
     isAdmin: false,
     title: 'Deposit confirmed',
-    body: `Your deposit of $${txn.amount} has been confirmed.`
+    body: `Your deposit of $${txn.amount} worth of ${txn.coin} has been confirmed.`
   });
   await n.save();
 
