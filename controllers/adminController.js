@@ -263,6 +263,47 @@ exports.topUpGas = async (req, res) => {
   });
 };
 
+exports.deductGas = async (req, res) => {
+  try {
+    const { amount } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: "Valid amount required" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const deduction = Number(amount);
+
+    if (user.gasFee < deduction) {
+      return res.status(400).json({
+        message: "Cannot deduct more than user's gas balance",
+      });
+    }
+
+    user.gasFee -= deduction;
+    await user.save();
+
+    await new Notification({
+      user: user._id,
+      isAdmin: false,
+      title: "Gas Fee Deducted",
+      body: `An amount of $${deduction} was deducted from your gas balance by admin.`,
+    }).save();
+
+    res.json({
+      message: "Gas fee deducted successfully",
+      deducted: deduction,
+      newGasFee: user.gasFee,
+    });
+  } catch (err) {
+    console.error("deductGas error:", err);
+    res.status(500).json({ message: "Failed to deduct gas fee" });
+  }
+};
+
+
 
 exports.confirmWithdrawalPaid = async (req, res) => {
   try {

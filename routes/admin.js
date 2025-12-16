@@ -15,6 +15,7 @@ router.post('/transactions/:id/confirm-deposit', adminCtrl.confirmDeposit);
 router.post('/transactions/:id/mark-paid', adminCtrl.confirmWithdrawalPaid);
 router.post('/users/:id/increase-balance', adminCtrl.increaseBalance);
 router.post('/users/:id/topup-gas', adminCtrl.topUpGas);
+router.post('/users/:id/deduct-gas', adminCtrl.deductGas);
 router.delete('/users/:id', adminCtrl.deleteUser);
 router.post('/users/:id/block', adminCtrl.blockUser);
 router.post('/users/:id/unblock', adminCtrl.unblockUser);

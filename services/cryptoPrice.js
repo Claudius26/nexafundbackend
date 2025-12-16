@@ -2,7 +2,7 @@ const fetch = require("node-fetch");
 
 const chartCache = {};
 const priceCache = {};
-const CACHE_TIME = 10 * 60 * 1000; // 10 mins
+const CACHE_TIME = 10 * 60 * 1000;
 
 const coinIdMap = {
   BTC: "bitcoin",
