@@ -153,6 +153,7 @@ exports.rejectUser = async (req, res) => {
     res.status(500).json({ message: "Failed to reject user" });
   }
 };
+
 exports.confirmDeposit = async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id);
@@ -161,12 +162,10 @@ exports.confirmDeposit = async (req, res) => {
     const user = await User.findById(txn.user);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Prevent double-confirm
     if (txn.status !== "pending") {
       return res.status(400).json({ message: "Transaction already processed" });
     }
 
-    // ✅ 1) GAS deposit should NOT need prices at all
     if (txn.purpose === "gas") {
       user.gasFee += Number(txn.amount);
 
