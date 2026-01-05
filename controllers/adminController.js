@@ -153,89 +153,113 @@ exports.rejectUser = async (req, res) => {
     res.status(500).json({ message: "Failed to reject user" });
   }
 };
-
-
-
 exports.confirmDeposit = async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id);
-    if (!txn) return res.status(404).json({ message: 'Transaction not found' });
+    if (!txn) return res.status(404).json({ message: "Transaction not found" });
 
     const user = await User.findById(txn.user);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    let prices, coinData, usdPrice, cryptoAmount;
+    // Prevent double-confirm
+    if (txn.status !== "pending") {
+      return res.status(400).json({ message: "Transaction already processed" });
+    }
 
-    if (txn.method === 'crypto') {
+    // ✅ 1) GAS deposit should NOT need prices at all
+    if (txn.purpose === "gas") {
+      user.gasFee += Number(txn.amount);
+
+      txn.status = "confirmed";
+      await txn.save();
+
+      const n = new Notification({
+        user: user._id,
+        isAdmin: false,
+        title: "Gas fee deposit confirmed",
+        body: `Your gas fee deposit of $${txn.amount} has been confirmed.`,
+      });
+      await n.save();
+
+      user.notifications.push(n._id);
+      await user.save();
+
+      return res.json({ message: "Gas deposit confirmed", transaction: txn });
+    }
+    let prices = null;
+    let usdPrice = 1;
+
+    const coin = String(txn.coin || "").trim().toUpperCase();
+
+    if (txn.method === "crypto") {
       prices = await getCryptoPrices();
-      coinData = prices[txn.coin];
 
-      if (!coinData?.price) {
-        return res.status(400).json({ message: "Unsupported coin" });
+      if (!prices) {
+        return res.status(503).json({
+          message:
+            "Price service is temporarily unavailable (rate-limited). Please retry in 1–2 minutes.",
+        });
       }
 
-      usdPrice = coinData.price;
-    }
+      const coinData = prices[coin];
 
-    if (txn.purpose === 'gas') {
-      user.gasFee +=txn.amount;
-    }
-
-    else {
-      if (txn.method === 'crypto') {
-        const usdAmount = Number(txn.amount);
-        cryptoAmount = usdAmount / usdPrice;
-
-        let wallet = user.wallets.find(w => w.coin === txn.coin);
-        if (!wallet) {
-          wallet = { coin: txn.coin, amount: 0,amountUsd: 0};
-          user.wallets.push(wallet);
-        }
-
-        wallet.amount += cryptoAmount;
-        wallet.amountUsd += txn.amount;
-        txn.cryptoAmount = cryptoAmount;
-
-        user.balance = calculateBalance(user.wallets, prices);
+      if (!coinData || !coinData.price) {
+        return res.status(400).json({
+          message: "Unsupported coin",
+        });
       }
 
-      else if (txn.method === 'giftcard') {
-        let wallet = user.wallets.find(w => w.coin === 'USDT');
-        if (!wallet) {
-          wallet = { coin: 'USDT', amount: 0,amountUsd:0 };
-          user.wallets.push(wallet);
-        }
-
-        wallet.amountUsd += Number(txn.amount);
-        user.balance = calculateBalance(user.wallets, { USDT: 1 });
-      }
+      usdPrice = Number(coinData.price);
     }
 
-    txn.status = 'confirmed';
+    if (txn.method === "crypto") {
+      const usdAmount = Number(txn.amount);
+      const cryptoAmount = usdAmount / usdPrice;
+
+      let wallet = user.wallets.find((w) => String(w.coin).toUpperCase() === coin);
+      if (!wallet) {
+        wallet = { coin, amount: 0, amountUsd: 0 };
+        user.wallets.push(wallet);
+      }
+
+      wallet.amount += cryptoAmount;
+      wallet.amountUsd += usdAmount; 
+      txn.cryptoAmount = cryptoAmount;
+
+      user.balance = calculateBalance(user.wallets, prices);
+    } else if (txn.method === "giftcard") {
+      let wallet = user.wallets.find((w) => w.coin === "USDT");
+      if (!wallet) {
+        wallet = { coin: "USDT", amount: 0, amountUsd: 0 };
+        user.wallets.push(wallet);
+      }
+
+      wallet.amountUsd += Number(txn.amount);
+      user.balance = calculateBalance(user.wallets, { USDT: 1 });
+    }
+
+    txn.status = "confirmed";
     await txn.save();
+
     await refreshWalletValues(user);
 
-
     const n = new Notification({
-    user: user._id,
-    isAdmin: false,
-    title: 'Deposit confirmed',
-    body: `Your deposit of $${txn.amount} worth of ${txn.coin} has been confirmed.`
-  });
-  await n.save();
+      user: user._id,
+      isAdmin: false,
+      title: "Deposit confirmed",
+      body: `Your deposit of $${txn.amount} worth of ${coin} has been confirmed.`,
+    });
+    await n.save();
 
-  user.notifications.push(n._id);
+    user.notifications.push(n._id);
+    await user.save();
 
-  await user.save();
-
-    res.json({ message: 'Deposit confirmed', transaction: txn });
-
+    return res.json({ message: "Deposit confirmed", transaction: txn });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error confirming deposit' });
+    console.error("confirmDeposit error:", err);
+    return res.status(500).json({ message: "Unable to confirm deposit" });
   }
 };
-
 
 exports.topUpGas = async (req, res) => {
   const { amount, method, coin } = req.body;
