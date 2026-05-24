@@ -392,8 +392,6 @@ exports.confirmWithdrawalPaid = async (req, res) => {
   }
 };
 
-
-
 exports.increaseBalance = async (req, res) => {
   const { coin, amount } = req.body;
 
@@ -402,7 +400,6 @@ exports.increaseBalance = async (req, res) => {
 
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ message: 'User not found' });
-
   
   const prices = await getCryptoPrices();
   if (!prices) return res.status(500).json({ message: "Price fetch failed" });
@@ -411,10 +408,7 @@ exports.increaseBalance = async (req, res) => {
   if (!coinPrice.price)
     return res.status(400).json({ message: "Unsupported coin" });
 
-
-
   const cryptoToAdd = Number(amount) / coinPrice.price;
-
 
 
   const wallet = user.wallets.find(w => w.coin === coin);
